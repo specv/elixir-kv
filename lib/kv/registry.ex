@@ -26,21 +26,54 @@ defmodule KV.Registry do
 
   @impl true
   def init(:ok) do
-    {:ok, %{}}
+    names = %{}
+    refs = %{}
+    {:ok, {names, refs}}
   end
 
   @impl true
-  def handle_call({:lookup, name}, _from, names) do
-    {:reply, Map.fetch(names, name), names}
+  def handle_call({:lookup, name}, _from, state) do
+    {names, _} = state
+    {:reply, Map.fetch(names, name), state}
   end
 
   @impl true
-  def handle_cast({:create, name}, names) do
+  def handle_cast({:create, name}, {names, refs}) do
     if Map.has_key?(names, name) do
-      {:noreply, names}
+      {:noreply, {names, refs}}
     else
+      # You can see the registry is both linking and monitoring the buckets
+      # This is a bad idea, as we don’t want the registry to crash when a
+      # bucket crashes. The proper fix is to actually not link the bucket
+      # to the registry. Instead, we will link each bucket to a special
+      # type of process called Supervisors, which are explicitly designed
+      # to handle failures and crashes. We will learn more about them in
+      # the next chapter.
       {:ok, bucket} = KV.Bucket.start_link([])
-      {:noreply, Map.put(names, name, bucket)}
+      ref = Process.monitor(bucket)
+      refs = Map.put(refs, ref, name)
+      names = Map.put(names, name, bucket)
+      {:noreply, {names, refs}}
     end
+  end
+
+  @impl true
+  def handle_info({:DOWN, ref, :process, _pid, _reason}, {names, refs}) do
+    {name, refs} = Map.pop(refs, ref)
+    names = Map.delete(names, name)
+    {:noreply, {names, refs}}
+  end
+
+  # Since any message, including the ones sent via send/2, go to handle_info/2, there is
+  # a chance unexpected messages will arrive to the server. Therefore, if we don’t define
+  # the catch-all clause, those messages could cause our registry to crash, because no
+  # clause would match. We don’t need to worry about such cases for handle_call/3 and
+  # handle_cast/2 though. Calls and casts are only done via the GenServer API, so an
+  # unknown message is quite likely a developer mistake.
+  @impl true
+  def handle_info(msg, state) do
+    require Logger
+    Logger.debug("Unexpected message in KV.Registry: #{inspect(msg)}")
+    {:noreply, state}
   end
 end
