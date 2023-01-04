@@ -15,6 +15,10 @@ defmodule KV.Bucket do
   # responsible for guaranteeing proper startup and shutdown, especially in case of
   # crashes in a supervision tree.
 
+  # Tools like Observer (`:observer.start`) are one of the reasons you want to always
+  # start processes inside supervision trees, even if they are temporary, to ensure
+  # they are always reachable and introspectable.
+
   # calling use generates a `child_spec` function with default configuration
   use Agent, restart: :temporary
 

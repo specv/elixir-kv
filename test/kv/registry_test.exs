@@ -8,6 +8,17 @@ defmodule KV.RegistryTest do
     # process will be shutdown before the next test starts. In other words, it helps guarantee
     # that the state of one test is not going to interfere with the next one in case they depend
     # on shared resources.
+
+    # TODO:
+    # Since we have changed our registry to use KV.BucketSupervisor, our tests are now relying on this
+    # shared supervisor even though each test has its own registry. The question is: should we?
+    # It depends. It is ok to rely on shared state as long as we depend only on a non-shared partition
+    # of this state. Although multiple registries may start buckets on the shared bucket supervisor,
+    # those buckets and registries are isolated from each other. We would only run into concurrency
+    # issues if we used a function like DynamicSupervisor.count_children(KV.BucketSupervisor) which
+    # would count all buckets from all registries, potentially giving different results when tests
+    # run concurrently.
+
     registry = start_supervised!(KV.Registry)
     %{registry: registry}
   end
