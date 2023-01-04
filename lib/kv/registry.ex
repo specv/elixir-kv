@@ -49,7 +49,7 @@ defmodule KV.Registry do
       # type of process called Supervisors, which are explicitly designed
       # to handle failures and crashes. We will learn more about them in
       # the next chapter.
-      {:ok, bucket} = KV.Bucket.start_link([])
+      {:ok, bucket} = DynamicSupervisor.start_child(KV.BucketSupervisor, KV.Bucket)
       ref = Process.monitor(bucket)
       refs = Map.put(refs, ref, name)
       names = Map.put(names, name, bucket)
