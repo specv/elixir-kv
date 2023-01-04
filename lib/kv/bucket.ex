@@ -1,7 +1,22 @@
 defmodule KV.Bucket do
 
+
+  # There is a resource leakage in our application. When a bucket terminates,
+  # the dynamic supervisor will start a new bucket in its place. After all,
+  # that’s the role of the supervisor!
+
+  # However, when the supervisor restarts the new bucket, the registry does
+  # not know about it. So we will have an empty bucket in the supervisor that
+  # nobody can access! To solve this, we want to say that buckets are actually
+  # temporary. If they crash, regardless of the reason, they should not be restarted.
+
+  # At this point, you may be wondering why use a supervisor if it never restarts its
+  # children. It happens that supervisors provide more than restarts, they are also
+  # responsible for guaranteeing proper startup and shutdown, especially in case of
+  # crashes in a supervision tree.
+
   # calling use generates a `child_spec` function with default configuration
-  use Agent
+  use Agent, restart: :temporary
 
   @doc """
   Starts a new bucket.
