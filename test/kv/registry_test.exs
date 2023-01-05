@@ -1,7 +1,7 @@
 defmodule KV.RegistryTest do
   use ExUnit.Case, async: true
 
-  setup do
+  setup context do
     # The start_supervised! function was injected into our test module by use ExUnit.Case.
     # It does the job of starting the KV.Registry process, by calling its start_link/1 function.
     # The advantage of using start_supervised! is that ExUnit will guarantee that the registry
@@ -19,8 +19,8 @@ defmodule KV.RegistryTest do
     # would count all buckets from all registries, potentially giving different results when tests
     # run concurrently.
 
-    registry = start_supervised!(KV.Registry)
-    %{registry: registry}
+    _ = start_supervised!({KV.Registry, name: context.test})
+    %{registry: context.test}
   end
 
   test "spawns buckets", %{registry: registry} do

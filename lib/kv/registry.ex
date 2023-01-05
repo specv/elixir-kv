@@ -5,7 +5,8 @@ defmodule KV.Registry do
   Starts the registry.
   """
   def start_link(opts) do
-    GenServer.start_link(__MODULE__, :ok, opts)
+    server = Keyword.fetch!(opts, :name)
+    GenServer.start_link(__MODULE__, server, opts)
   end
 
   @doc """
@@ -14,7 +15,10 @@ defmodule KV.Registry do
   Returns `{:ok, pid}` if the bucket exists, `:error` otherwise.
   """
   def lookup(server, name) do
-    GenServer.call(server, {:lookup, name})
+    case :ets.lookup(server, name) do
+      [{^name, pid}] -> {:ok, pid}
+      [] -> :error
+    end
   end
 
   @doc """
@@ -25,8 +29,8 @@ defmodule KV.Registry do
   end
 
   @impl true
-  def init(:ok) do
-    names = %{}
+  def init(table) do
+    names = :ets.new(table, [:named_table, read_concurrency: true])
     refs = %{}
     {:ok, {names, refs}}
   end
@@ -39,28 +43,29 @@ defmodule KV.Registry do
 
   @impl true
   def handle_cast({:create, name}, {names, refs}) do
-    if Map.has_key?(names, name) do
-      {:noreply, {names, refs}}
-    else
-      # You can see the registry is both linking and monitoring the buckets
-      # This is a bad idea, as we don’t want the registry to crash when a
-      # bucket crashes. The proper fix is to actually not link the bucket
-      # to the registry. Instead, we will link each bucket to a special
-      # type of process called Supervisors, which are explicitly designed
-      # to handle failures and crashes. We will learn more about them in
-      # the next chapter.
-      {:ok, bucket} = DynamicSupervisor.start_child(KV.BucketSupervisor, KV.Bucket)
-      ref = Process.monitor(bucket)
-      refs = Map.put(refs, ref, name)
-      names = Map.put(names, name, bucket)
-      {:noreply, {names, refs}}
+    case lookup(names, name) do
+      {:ok, _pid} ->
+        {:noreply, {names, refs}}
+      :error ->
+        # You can see the registry is both linking and monitoring the buckets
+        # This is a bad idea, as we don’t want the registry to crash when a
+        # bucket crashes. The proper fix is to actually not link the bucket
+        # to the registry. Instead, we will link each bucket to a special
+        # type of process called Supervisors, which are explicitly designed
+        # to handle failures and crashes. We will learn more about them in
+        # the next chapter.
+        {:ok, bucket} = DynamicSupervisor.start_child(KV.BucketSupervisor, KV.Bucket)
+        ref = Process.monitor(bucket)
+        refs = Map.put(refs, ref, name)
+        :ets.insert(names, {name, bucket})
+        {:noreply, {names, refs}}
     end
   end
 
   @impl true
   def handle_info({:DOWN, ref, :process, _pid, _reason}, {names, refs}) do
     {name, refs} = Map.pop(refs, ref)
-    names = Map.delete(names, name)
+    :ets.delete(names, name)
     {:noreply, {names, refs}}
   end
 
