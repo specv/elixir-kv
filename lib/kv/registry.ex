@@ -25,7 +25,7 @@ defmodule KV.Registry do
   Ensures there is a bucket associated with the given `name` in `server`.
   """
   def create(server, name) do
-    GenServer.cast(server, {:create, name})
+    GenServer.call(server, {:create, name})
   end
 
   @impl true
@@ -42,10 +42,10 @@ defmodule KV.Registry do
   end
 
   @impl true
-  def handle_cast({:create, name}, {names, refs}) do
+  def handle_call({:create, name}, _from, {names, refs}) do
     case lookup(names, name) do
-      {:ok, _pid} ->
-        {:noreply, {names, refs}}
+      {:ok, bucket} ->
+        {:reply, bucket, {names, refs}}
       :error ->
         # You can see the registry is both linking and monitoring the buckets
         # This is a bad idea, as we don’t want the registry to crash when a
@@ -58,7 +58,7 @@ defmodule KV.Registry do
         ref = Process.monitor(bucket)
         refs = Map.put(refs, ref, name)
         :ets.insert(names, {name, bucket})
-        {:noreply, {names, refs}}
+        {:reply, bucket, {names, refs}}
     end
   end
 
