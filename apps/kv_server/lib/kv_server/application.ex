@@ -10,6 +10,9 @@ defmodule KVServer.Application do
     port = String.to_integer(System.get_env("PORT") || "4040")
 
     children = [
+      {Task.Supervisor, name: KVServer.TaskSupervisor},
+      # Opposite to GenServer, Agent and Supervisor, a Task has a default :restart
+      # of :temporary. This means the task will not be restarted even if it crashes.
       {Task, fn -> KVServer.accept(port) end}
     ]
 

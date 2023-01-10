@@ -17,7 +17,11 @@ defmodule KVServer do
 
   defp loop_acceptor(socket) do
     {:ok, client} = :gen_tcp.accept(socket)
-    Task.start_link(fn -> serve(client) end)
+    {:ok, pid} = Task.Supervisor.start_child(KVServer.TaskSupervisor, fn -> serve(client) end)
+    # This makes the child process the “controlling process” of the client socket.
+    # If we didn’t do this, the acceptor would bring down all the clients if it crashed
+    # because sockets would be tied to the process that accepted them (which is the default behaviour).
+    :ok = :gen_tcp.controlling_process(client, pid)
     loop_acceptor(socket)
   end
 
