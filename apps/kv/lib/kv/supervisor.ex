@@ -13,7 +13,9 @@ defmodule KV.Supervisor do
       {DynamicSupervisor, name: KV.BucketSupervisor, strategy: :one_for_one},
       # With this in place, the supervisor will now start KV.Registry by calling KV.Registry.start_link(name: KV.Registry).
       # If you revisit the KV.Registry.start_link/1 implementation, you will remember it simply passes the options to GenServer
-      {KV.Registry, name: KV.Registry}
+      {KV.Registry, name: KV.Registry},
+      # Task.Supervisor.async({KV.RouterTasks, :"foo@computer-name"}, Kernel, :node, [])
+      {Task.Supervisor, name: KV.RouterTasks},
     ]
 
     # If KV.Registry dies, all information linking KV.Bucket names to bucket processes is lost. Therefore
