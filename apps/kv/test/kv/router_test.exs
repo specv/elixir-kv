@@ -3,10 +3,11 @@ defmodule KV.RouterTest do
 
   @tag :distributed
   test "route requests across nodes" do
+    {:ok, hostname} = :inet.gethostname()
     assert KV.Router.route("hello", Kernel, :node, []) ==
-             :"foo@computer-name"
+             :"foo@#{hostname}"
     assert KV.Router.route("world", Kernel, :node, []) ==
-             :"bar@computer-name"
+             :"bar@#{hostname}"
   end
 
   test "raises on unknown entries" do

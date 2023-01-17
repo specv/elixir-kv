@@ -31,7 +31,8 @@ defmodule KV.Router do
   The routing table.
   """
   def table do
+    {:ok, hostname} = :inet.gethostname()
     # Replace computer-name with your local machine name
-    [{?a..?m, :"foo@computer-name"}, {?n..?z, :"bar@computer-name"}]
+    [{?a..?m, :"foo@#{hostname}"}, {?n..?z, :"bar@#{hostname}"}]
   end
 end
